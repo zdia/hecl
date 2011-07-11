@@ -339,6 +339,7 @@ public class MathCmds extends org.hecl.Operator {
 //#endif
 
 //#ifdef j2se
+//#elifdef android
 	  case POW:
 	    return DoubleThing.create(Math.pow(a.doubleValue(), b.doubleValue()));
 //#if javaversion >= 1.5
