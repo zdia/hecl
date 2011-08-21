@@ -1,3 +1,19 @@
+/*
+ * Encryption Class needed for the project "Password Gorilla for Android"
+ *
+ * twofish::init
+ * twofish::decrypt ebc|cbc key iv
+ * twofish::encrypt ebc|cbc key iv
+ *
+ * ::sha2::SHA256Init - Returns a token ID that must be used for the remaining functions. 
+ * ::sha2::SHA256Update token data - Add data to the hash identified by token.
+ * ::sha2::SHA256Final token - Returns the hash value and releases any resources held by this token.
+ * ::sha2::sha256 ? -hex|-bin ? [ -channel channel | -file filename | string ] -
+ *     The command takes a message and returns the SHA256 digest of this message
+ * 		 as a hexadecimal string. You may request the result as binary data by giving -bin. 
+
+*/
+
 // Hashing String with SHA-256
 
 // It will use SHA-256 hashing algorithm to generate a hash value for a password in the argv

@@ -783,6 +783,10 @@ public class Interp extends Thread/*implements Runnable*/ {
 	/* String commands. */
 	StringCmds.load(this);
 
+	//	System.err.println("loading Gorilla cmds...");
+	/* Gorilla commands. */
+	GorillaCmds.load(this);
+
 	//	System.err.println("loading hash cmds...");
 	/* Hash table commands. */
 	HashCmds.load(this);
