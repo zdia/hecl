@@ -36,6 +36,8 @@ import org.hecl.Interp;
 import org.hecl.ObjectThing;
 import org.hecl.Thing;
 
+import org.hecl.StringThing;
+
 /**
  * The <code>HeclStreamCmds</code> class implements command handlers
  * for DataInputStream and DataOutputStream, which are handled as
@@ -65,10 +67,38 @@ public class HeclStreamCmds implements ClassCommand {
 			byte[] b = new byte[IntThing.get(argv[2])];
 			dis.read(b);
 			retval = new Thing(new String(b));
+
 		    } else if (argv.length == 2) {
 			/* Read the entire thing. */
 			return HeclFileUtils.readFileFromDis(dis);
 		    }
+				
+		/* begin patch added by zdia 23.08.2011:
+		 * return a binary byte as a hex string with two bytes
+		 */
+		} else if (subcmd.equals("readhex")) { 
+			if (argv.length == 3) {
+			/* Read N bytes. */
+			byte[] b = new byte[IntThing.get(argv[2])];
+			dis.read(b);
+
+			StringBuffer sb = new StringBuffer(b.length);
+			/* convert to hex */
+			for (int i = 0; i < b.length ; i++) {
+					sb.append(Integer.toString((b[i] & 0xff) + 0x100, 16).substring(1));
+			}
+
+			// System.out.println("len sb: " + sb.length());
+			// System.out.println("sb: " + sb.toString());
+
+			retval = new Thing(new String(sb.toString()));
+
+			} else if (argv.length != 3) {
+				/* Read the entire thing. */
+				return null;
+			}
+		/* end patch */
+		
 		} else if (subcmd.equals("readln")) {
 		    StringBuffer sb = new StringBuffer();
 		    int c = 0;

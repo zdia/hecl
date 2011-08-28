@@ -123,11 +123,11 @@ public class Hecl {
     */
 
     public static void extend(Interp ip) throws HeclException {
+/*
 			ip.addCommand("sha256", new Sha256Cmd());
-	/*
-	ip.addCommand("jones",new ObjectCmd());
-	ip.addClassCmd(ObjectCmd.class,new ClCmd());
-	*/
+			ip.addCommand("jones",new ObjectCmd());
+			ip.addClassCmd(ObjectCmd.class,new ClCmd());
+*/
     }
 }
 
