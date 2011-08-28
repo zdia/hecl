@@ -144,7 +144,7 @@ puts "iteration: $iter"
 
   # pwsafe::int::randomizeVar salt hskey myhskey
   
-  puts "Step 1: Password verify test passed"
+  puts "Step 1: Password verified"
   
 #
 	# The real key is encrypted using Twofish in ECB mode, using
@@ -160,9 +160,9 @@ puts "iteration: $iter"
 	#
 
 	set key [twofish::decrypt $b1 $myskey]
-	append key [twofish::decrypt $b2 $myskey]
-puts "key $key"
-
+	append $key [twofish::decrypt $b2 $myskey]
+  # puts "key $key"
+  puts "Step 2: Twofish key decrypted"
 	#pwsafe::int::randomizeVar b1 b2
 
 	# set hmacKey [$hdrEngine decryptBlock $b3]
@@ -170,7 +170,6 @@ puts "key $key"
 	# set hmacEngine [sha2::HMACInit $hmacKey]
 	# pwsafe::int::randomizeVar b3 b4 hmacKey
 
-	itcl::delete object $hdrEngine
 
 
   

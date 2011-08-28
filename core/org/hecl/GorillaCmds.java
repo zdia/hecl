@@ -42,9 +42,10 @@ class GorillaCmds extends Operator {
   public static final int SHA256 = 1;
   public static final int HEX = 2;
   public static final int TWOFISHENCRYPT = 3;
+  public static final int TWOFISHDECRYPT = 4;
 
   public byte[] hexDecode(String hex) throws Exception {
-		System.out.println("len" + hex.length());
+		// System.out.println("len" + hex.length());
     if ((hex.length() % 2) != 0)
       throw new IllegalArgumentException("Input string must contain an even number of characters");
 
@@ -107,19 +108,17 @@ class GorillaCmds extends Operator {
 
       case TWOFISHENCRYPT:
       /* Syntax: twofish::encrypt message key */
+      /* Todo Syntax: twofish::encrypt -ecb|-cbc message key */
 
         try {
 
-        String key = argv[2].toString();
-
-        byte[] strBytes = hexDecode(str);
-        byte[] keyBytes = hexDecode(key);
+					String key = argv[2].toString();
+		
+					byte[] strBytes = hexDecode(str);
+					byte[] keyBytes = hexDecode(key);
  
-        // hex decode key
-        // hex decode str
-        
 					Security.addProvider(new BouncyCastleProvider());
-					System.out.println("sec " + Security.getProvider("BC"));
+					// System.out.println("sec " + Security.getProvider("BC"));
 
 					SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
 
@@ -132,44 +131,43 @@ class GorillaCmds extends Operator {
 					
 					ctLength += cipher.doFinal(cipherText, ctLength);
 	
-					// convert the byte result back to hex format
-					for (int i = 0; i < cipherText.length; i++) {
-					 sb.append(Integer.toString((cipherText[i] & 0xff) + 0x100, 16).substring(1));
-					}
-					System.out.println("cipher text: " + sb.toString());
+					return StringThing.create(hexEncode(cipherText));
 
 				}
-        catch ( NoSuchAlgorithmException nsae ) { 
-          System.out.println("Algorithm Twofish does not exist");
-          return null;
-        }
-        catch ( NoSuchProviderException nspe ) { 
-          System.out.println("Provider does not exist");
-          return null;
-        }
-        catch ( NoSuchPaddingException np ) { 
-          System.out.println("Padding does not exist");
-          return null;
-        }
+
 				catch (Exception e) {
 					return StringThing.create("Error: " + e.getMessage());
 				}
-    
-        return StringThing.create(sb.toString());
-          
-        // decryption pass
-        
-/*
-        byte[] plainText = new byte[ctLength];
-        
-        cipher.init(Cipher.DECRYPT_MODE, key);
 
-        int ptLength = cipher.update(cipherText, 0, ctLength, plainText, 0);
-        
-        ptLength += cipher.doFinal(plainText, ptLength);
-        
-        System.out.println("plain text : " + Utils.toHex(plainText) + " bytes: " + ptLength);
-*/
+			case TWOFISHDECRYPT:
+      /* Syntax: twofish::decrypt message key */
+      /* Todo Syntax: twofish::encrypt -ecb|-cbc message key */
+
+        try {
+
+					String key = argv[2].toString();
+		
+					byte[] encodedBytes = hexDecode(str);
+					byte[] keyBytes = hexDecode(key);
+ 					byte[] decodedBytes = new byte[encodedBytes.length];
+
+					Security.addProvider(new BouncyCastleProvider());
+					// System.out.println("sec " + Security.getProvider("BC"));
+
+					SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
+          Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding", "BC");
+					cipher.init(Cipher.DECRYPT_MODE, gorillaKey);
+	
+					int decodedLength = cipher.update(encodedBytes, 0, encodedBytes.length, decodedBytes, 0);
+					decodedLength += cipher.doFinal(decodedBytes, decodedLength);
+	
+					return StringThing.create(hexEncode(decodedBytes));
+
+				}
+
+				catch (Exception e) {
+					return StringThing.create("Error: " + e.getMessage());
+				}
         
       default:
         throw new HeclException("Unknown Gorilla command '"
@@ -196,5 +194,6 @@ class GorillaCmds extends Operator {
     cmdtable.put("sha256", new GorillaCmds(SHA256,1,1));
     cmdtable.put("hex", new GorillaCmds(HEX,1,1));
     cmdtable.put("twofish::encrypt", new GorillaCmds(TWOFISHENCRYPT,1,2));
+    cmdtable.put("twofish::decrypt", new GorillaCmds(TWOFISHDECRYPT,1,2));
   }
 }
