@@ -22,6 +22,19 @@
 # number of iterations that is stored in the file.
 #
 
+proc toLittleEndian { bigEndian } {
+  # bigEndian - accepts big Endian hex string
+  # returns little Endian hex string
+  set le ""
+  
+  for { set i 0 } { < $i [strlen $bigEndian] } { incr $i 2 } {
+    set byte "[strrange $bigEndian $i [+ $i 1]]"
+    set le [append $byte $le]
+  }
+
+  return $le
+}
+
 proc computeStretchedKey {salt password iterations} {
 
 puts $password
@@ -37,6 +50,66 @@ puts "End Xi $Xi"
   return $Xi
     
 }
+
+proc readHeaderFields {} {
+  # fh - filehandler
+  # while {![$source eof]}
+  # while {file.readable} {
+  # }
+  set field [readField]
+  
+} ;# end of proc
+
+proc readField {} {
+  global source key iv
+  #
+	# first block contains field length and type
+	#
+
+	set encryptedFirstBlock [$source readhex 16]
+puts "encryptedFirstBlock $encryptedFirstBlock"
+
+	if { eq $encryptedFirstBlock "PWS3-EOFPWS3-EOF"} {
+	    # EOF marker
+	    return [list]
+	}
+  # if {[string length $encryptedFirstBlock] == 0 && [$source eof]} {
+	    # error "EOF while reading field"
+	# }
+# 
+	# if {[string length $encryptedFirstBlock] != 16} {
+	    # error "less than 16 bytes remaining for first block"
+	# }
+  
+  # set engine [itwofish::cbc \#auto $key $iv]
+	# set decryptedFirstBlock [$engine decrypt $encryptedFirstBlock]
+
+  # in cbc mode the iv is taken from the last 16byte block from the cipher
+	set decryptedFirstBlock [twofish::decrypt -cbc $encryptedFirstBlock $key $iv]
+  puts "decryptedFirstBlock: $decryptedFirstBlock"
+
+  set fieldLength [ integer parseInt [toLittleEndian [strrange $decryptedFirstBlock 0 7] ] 16 ]
+  set fieldType [integer parseInt [strrange $decryptedFirstBlock 8 9] 16]
+
+  #
+	# field length sanity check
+	#
+
+	if { or [ < $fieldLength 0 ] [ > $fieldLength 65536 ] } {
+	    puts "field length $fieldLength looks insane"
+      exit
+	}
+
+  puts "length: $fieldLength type: $fieldType"
+
+  #
+	# field type sanity check
+	#
+
+  # if { $type ni $typeList } error
+
+  
+} ;# end of proc
 
 # pwsafe-db.tcl
     # public method getPassword {} {
@@ -57,18 +130,7 @@ puts "End Xi $Xi"
   # return $res
     # }
 
-proc toLittleEndian { bigEndian } {
-  # bigEndian - accepts big Endian hex string
-  # returns little Endian hex string
-  set le ""
-  
-  for { set i 0 } { < $i [strlen $bigEndian] } { incr $i 2 } {
-    set byte "[strrange $bigEndian $i [+ $i 1]]"
-    set le [append $byte $le]
-  }
 
-  return $le
-}
 
 # ================== main =======================
 
@@ -111,8 +173,6 @@ set tag [$source read 4]
     puts "end of file while reading header"
     exit
   }
-
-$source close
 
 java java.lang.Integer integer
 set iter [ integer parseInt [toLittleEndian $biter] 16 ]
@@ -159,17 +219,20 @@ puts "iteration: $iter"
 	# used to calculate the HMAC
 	#
 
-	set key [twofish::decrypt $b1 $myskey]
-	append $key [twofish::decrypt $b2 $myskey]
+	set key [twofish::decrypt -ecb $b1 $myskey]
+	append $key [twofish::decrypt -ecb $b2 $myskey]
   # puts "key $key"
-  puts "Step 2: Twofish key decrypted"
+  
 	#pwsafe::int::randomizeVar b1 b2
 
-	# set hmacKey [$hdrEngine decryptBlock $b3]
-	# append hmacKey [$hdrEngine decryptBlock $b4]
+	set hmacKey [twofish::decrypt -ecb $b3 $myskey]
+	append $hmacKey [twofish::decrypt -ecb $b4 $myskey]
+
+  puts "Step 2: Twofish and Hmac key decrypted"
+
+  readField
 	# set hmacEngine [sha2::HMACInit $hmacKey]
+  
 	# pwsafe::int::randomizeVar b3 b4 hmacKey
 
-
-
-  
+$source close

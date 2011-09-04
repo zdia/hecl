@@ -32,6 +32,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.Cipher;
 import java.security.Security;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -45,7 +46,7 @@ class GorillaCmds extends Operator {
   public static final int TWOFISHDECRYPT = 4;
 
   public byte[] hexDecode(String hex) throws Exception {
-		// System.out.println("len" + hex.length());
+    // System.out.println("len" + hex.length());
     if ((hex.length() % 2) != 0)
       throw new IllegalArgumentException("Input string must contain an even number of characters");
 
@@ -112,62 +113,94 @@ class GorillaCmds extends Operator {
 
         try {
 
-					String key = argv[2].toString();
-		
-					byte[] strBytes = hexDecode(str);
-					byte[] keyBytes = hexDecode(key);
+          String key = argv[2].toString();
+    
+          byte[] strBytes = hexDecode(str);
+          byte[] keyBytes = hexDecode(key);
  
-					Security.addProvider(new BouncyCastleProvider());
-					// System.out.println("sec " + Security.getProvider("BC"));
+          Security.addProvider(new BouncyCastleProvider());
+          // System.out.println("sec " + Security.getProvider("BC"));
 
-					SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
+          SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
 
           Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding", "BC");
         
-					byte[] cipherText = new byte[strBytes.length];
-					cipher.init(Cipher.ENCRYPT_MODE, gorillaKey);
-	
-					int ctLength = cipher.update(strBytes, 0, strBytes.length, cipherText, 0);
-					
-					ctLength += cipher.doFinal(cipherText, ctLength);
-	
-					return StringThing.create(hexEncode(cipherText));
+          byte[] cipherText = new byte[strBytes.length];
+          cipher.init(Cipher.ENCRYPT_MODE, gorillaKey);
+  
+          int ctLength = cipher.update(strBytes, 0, strBytes.length, cipherText, 0);
+          
+          ctLength += cipher.doFinal(cipherText, ctLength);
+  
+          return StringThing.create(hexEncode(cipherText));
 
-				}
+        }
 
-				catch (Exception e) {
-					return StringThing.create("Error: " + e.getMessage());
-				}
+        catch (Exception e) {
+          return StringThing.create("Error: " + e.getMessage());
+        }
 
-			case TWOFISHDECRYPT:
+      case TWOFISHDECRYPT:
       /* Syntax: twofish::decrypt message key */
       /* Todo Syntax: twofish::encrypt -ecb|-cbc message key */
 
         try {
+          if (str.equals("-ecb")) {
 
-					String key = argv[2].toString();
+						String data = argv[2].toString();
+						String key = argv[3].toString();
+			
+						byte[] encodedBytes = hexDecode(data);
+						byte[] keyBytes = hexDecode(key);
+						byte[] decodedBytes = new byte[encodedBytes.length];
+	
+						Security.addProvider(new BouncyCastleProvider());
+						// System.out.println("sec " + Security.getProvider("BC"));
+	
+						SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
+						Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding", "BC");
+						cipher.init(Cipher.DECRYPT_MODE, gorillaKey);
 		
-					byte[] encodedBytes = hexDecode(str);
-					byte[] keyBytes = hexDecode(key);
- 					byte[] decodedBytes = new byte[encodedBytes.length];
+						int decodedLength = cipher.update(encodedBytes, 0, encodedBytes.length, decodedBytes, 0);
+						decodedLength += cipher.doFinal(decodedBytes, decodedLength);
+		
+						return StringThing.create(hexEncode(decodedBytes));
 
-					Security.addProvider(new BouncyCastleProvider());
-					// System.out.println("sec " + Security.getProvider("BC"));
-
-					SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
-          Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding", "BC");
-					cipher.init(Cipher.DECRYPT_MODE, gorillaKey);
+					} else if (str.equals("-cbc")) {
+						
+						String data = argv[2].toString();
+						String key = argv[3].toString();
+						String iv = argv[4].toString();
+						
+						if (iv.equals("")) {
+							throw new HeclException("Missing Initialization vector");
+						}
+						
+						byte[] encodedBytes = hexDecode(data);
+						byte[] keyBytes = hexDecode(key);
+						byte[] ivBytes = hexDecode(iv);
+						byte[] decodedBytes = new byte[encodedBytes.length];
 	
-					int decodedLength = cipher.update(encodedBytes, 0, encodedBytes.length, decodedBytes, 0);
-					decodedLength += cipher.doFinal(decodedBytes, decodedLength);
+						Security.addProvider(new BouncyCastleProvider());
 	
-					return StringThing.create(hexEncode(decodedBytes));
+						SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
+						IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+						Cipher cipher = Cipher.getInstance("Twofish/CBC/NoPadding", "BC");
+						cipher.init(Cipher.DECRYPT_MODE, gorillaKey, ivSpec);
+		
+						int decodedLength = cipher.update(encodedBytes, 0, encodedBytes.length, decodedBytes, 0);
+						decodedLength += cipher.doFinal(decodedBytes, decodedLength);
+		
+						return StringThing.create(hexEncode(decodedBytes));
+						
+          } else {   
+						throw new HeclException("Unknown mode " + str + ": -ecb or -cbc expected");
+					}
+        }
 
-				}
-
-				catch (Exception e) {
-					return StringThing.create("Error: " + e.getMessage());
-				}
+        catch (Exception e) {
+          return StringThing.create("Error: " + e.getMessage());
+        }
         
       default:
         throw new HeclException("Unknown Gorilla command '"
@@ -194,6 +227,6 @@ class GorillaCmds extends Operator {
     cmdtable.put("sha256", new GorillaCmds(SHA256,1,1));
     cmdtable.put("hex", new GorillaCmds(HEX,1,1));
     cmdtable.put("twofish::encrypt", new GorillaCmds(TWOFISHENCRYPT,1,2));
-    cmdtable.put("twofish::decrypt", new GorillaCmds(TWOFISHDECRYPT,1,2));
+    cmdtable.put("twofish::decrypt", new GorillaCmds(TWOFISHDECRYPT,3,4));
   }
 }
