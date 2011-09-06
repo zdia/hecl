@@ -56,8 +56,50 @@ proc readHeaderFields {} {
   # while {![$source eof]}
   # while {file.readable} {
   # }
-  set field [readField]
+puts "while"
+  while { true } {
+    set field [readField]
+
+    if { eq $field "" } { puts eof; break } ;# eof
+
+    set fieldType [lindex $field 0]
+    set fieldValue [lindex $field 1]
+    
+  puts "field $field"
   
+    if { = $fieldType -1} {
+      puts "fieldType = -1"
+      break
+    }
+
+# sha2::HMACUpdate $hmacEngine $fieldValue
+
+    #
+    # Format the header's field type, if necessary
+    #
+
+    if { = $fieldType 0 } {
+        #
+        # Version
+        #
+        set fieldValue [list [strrange $fieldValue 2 3] [strrange $fieldValue 0 1] ]
+        puts "version $fieldValue"
+    } elseif { = $fieldType 1 } {
+        #
+        # UUID
+        #
+        puts uuid
+        # binary scan $fieldValue H* tmp
+        # set fieldValue [string range $tmp 0 7]
+        # append fieldValue "-" [string range $tmp 8 11]
+        # append fieldValue "-" [string range $tmp 12 15]
+        # append fieldValue "-" [string range $tmp 16 19]
+        # append fieldValue "-" [string range $tmp 20 31]
+    }
+
+    # $db setHeaderField $fieldType $fieldValue
+        
+  } ;# end while
 } ;# end of proc
 
 proc readField {} {
@@ -85,6 +127,11 @@ puts "encryptedFirstBlock $encryptedFirstBlock"
 	# set decryptedFirstBlock [$engine decrypt $encryptedFirstBlock]
 
   # in cbc mode the iv is taken from the last 16byte block from the cipher
+
+  # we have to pass the new iv
+  
+# puts "key $key"
+# puts "iv $iv"
 	set decryptedFirstBlock [twofish::decrypt -cbc $encryptedFirstBlock $key $iv]
   puts "decryptedFirstBlock: $decryptedFirstBlock"
 
@@ -97,18 +144,28 @@ puts "encryptedFirstBlock $encryptedFirstBlock"
 
 	if { or [ < $fieldLength 0 ] [ > $fieldLength 65536 ] } {
 	    puts "field length $fieldLength looks insane"
-      exit
+      # exit
 	}
 
   puts "length: $fieldLength type: $fieldType"
 
+  # Todo: if { $type ni $typeList } error
+
   #
-	# field type sanity check
+	# remainder of the first block contains data
 	#
 
-  # if { $type ni $typeList } error
+	if { <= $fieldLength 11} {
+	    set fieldData [strrange $decryptedFirstBlock 10 [+ [ * 2 $fieldLength ] 9]]
+	    # pwsafe::int::randomizeVar decryptedFirstBlock
+  puts "fieldType $fieldType fieldData $fieldData [strlen $fieldData]"
+	    return [list $fieldType $fieldData]
+	}
 
-  
+	# set fieldData [string range $decryptedFirstBlock 5 end]
+	# pwsafe::int::randomizeVar decryptedFirstBlock
+	# incr fieldLength -11
+
 } ;# end of proc
 
 # pwsafe-db.tcl
@@ -176,7 +233,6 @@ set tag [$source read 4]
 
 java java.lang.Integer integer
 set iter [ integer parseInt [toLittleEndian $biter] 16 ]
-puts "iteration: $iter"
 # Todo: iter min max warnings
 
 # Todo: $db configure -keyStretchingIterations $iter
@@ -221,7 +277,6 @@ puts "iteration: $iter"
 
 	set key [twofish::decrypt -ecb $b1 $myskey]
 	append $key [twofish::decrypt -ecb $b2 $myskey]
-  # puts "key $key"
   
 	#pwsafe::int::randomizeVar b1 b2
 
@@ -230,7 +285,7 @@ puts "iteration: $iter"
 
   puts "Step 2: Twofish and Hmac key decrypted"
 
-  readField
+  readHeaderFields
 	# set hmacEngine [sha2::HMACInit $hmacKey]
   
 	# pwsafe::int::randomizeVar b3 b4 hmacKey
