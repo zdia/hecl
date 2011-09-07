@@ -67,8 +67,8 @@ puts "while"
     
   puts "field $field"
   
-    if { = $fieldType -1} {
-      puts "fieldType = -1"
+    if { = $fieldType 255} {
+      puts "while loop broken by $fieldType"  ;# -1 -> 255
       break
     }
 
@@ -83,7 +83,6 @@ puts "while"
         # Version
         #
         set fieldValue [list [strrange $fieldValue 2 3] [strrange $fieldValue 0 1] ]
-        puts "version $fieldValue"
     } elseif { = $fieldType 1 } {
         #
         # UUID
@@ -98,8 +97,21 @@ puts "while"
     }
 
     # $db setHeaderField $fieldType $fieldValue
+    puts "db setHeaderField $fieldValue"
         
   } ;# end while
+
+  puts "while loop left"
+
+  #
+	# If there is no version header field, then add one. The rest of
+	# the code uses it to detect v3 files, assuming v2 otherwise.
+	#
+
+	# if {![$db hasHeaderField 0]} {
+	    # $db setHeaderField 0 [list 3 0]
+	# }
+  
 } ;# end of proc
 
 proc readField {} {
@@ -129,13 +141,16 @@ puts "encryptedFirstBlock $encryptedFirstBlock"
   # in cbc mode the iv is taken from the last 16byte block from the cipher
 
   # we have to pass the new iv
-  
-# puts "key $key"
-# puts "iv $iv"
+
+puts "key $key"
+puts "iv $iv"
 	set decryptedFirstBlock [twofish::decrypt -cbc $encryptedFirstBlock $key $iv]
   puts "decryptedFirstBlock: $decryptedFirstBlock"
 
+  set iv $encryptedFirstBlock
+  
   set fieldLength [ integer parseInt [toLittleEndian [strrange $decryptedFirstBlock 0 7] ] 16 ]
+  # set fieldType [integer parseInt [strrange $decryptedFirstBlock 8 9] 16]
   set fieldType [integer parseInt [strrange $decryptedFirstBlock 8 9] 16]
 
   #
@@ -162,10 +177,48 @@ puts "encryptedFirstBlock $encryptedFirstBlock"
 	    return [list $fieldType $fieldData]
 	}
 
-	# set fieldData [string range $decryptedFirstBlock 5 end]
+puts "field > 11"
+	set fieldData [strrange $decryptedFirstBlock 10 [incr [strlen $decryptedFirstBlock] -1]]
 	# pwsafe::int::randomizeVar decryptedFirstBlock
-	# incr fieldLength -11
+	incr $fieldLength -11
 
+	#
+	# remaining data is stored in multiple blocks
+	#
+
+	set numBlocks [ / [+ $fieldLength 15] 16 ]
+	set dataLength [* $numBlocks 16]
+
+  #
+	# decrypt field
+	#
+puts "dataLength $dataLength"
+	set encryptedData [$source readhex $dataLength]
+
+	if { != [strlen $encryptedData] [* 2 $dataLength]} {
+	    puts "Error: out of data"
+	}
+
+	# set decryptedData [$engine decrypt $encryptedData]
+puts "encryptedData $encryptedData"
+puts "iv $iv"
+	set decryptedData [twofish::decrypt -cbc $encryptedData $key $iv]
+puts "decryptedData $decryptedData"
+  set iv $encryptedData
+  #
+	# adjust length of data; truncate padding
+	#
+
+	append fieldData [strrange $decryptedData 0 [- $fieldLength 1]]
+
+	#
+	# field decrypted successfully
+	#
+
+	# pwsafe::int::randomizeVar decryptedData
+puts "return readField:   [list $fieldType $fieldData]"
+	return [list $fieldType $fieldData]
+  
 } ;# end of proc
 
 # pwsafe-db.tcl
