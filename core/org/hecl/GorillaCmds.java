@@ -30,6 +30,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import java.security.Security;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
@@ -44,6 +45,8 @@ class GorillaCmds extends Operator {
   public static final int HEX = 2;
   public static final int TWOFISHENCRYPT = 3;
   public static final int TWOFISHDECRYPT = 4;
+  public static final int HEXTOASC = 5;
+  public static final int SHA256HMAC = 6;
 
   public byte[] hexDecode(String hex) throws Exception {
     // System.out.println("len" + hex.length());
@@ -201,7 +204,55 @@ class GorillaCmds extends Operator {
         catch (Exception e) {
           return StringThing.create("Error: " + e.getMessage());
         }
-        
+
+			case HEXTOASC:
+ 
+				StringBuilder temp = new StringBuilder();
+		 
+				// split str into two characters
+				for( int i=0; i<str.length()-1; i+=2 ){
+		 
+						//grab the hex in pairs
+						String output = str.substring(i, (i + 2));
+						//convert hex to decimal
+						int decimal = Integer.parseInt(output, 16);
+						//convert the decimal to character
+						sb.append((char)decimal);
+		 
+						temp.append(decimal);
+				}
+				return StringThing.create(sb.toString());
+
+			case SHA256HMAC:
+			// just the encryption step is implemented
+			// sha256hmac message key
+			
+				try {
+					String key = argv[2].toString();
+
+					if (key.equals("")) {
+						throw new HeclException("Error: Missing key");
+					}
+
+					byte[] decoded = hexDecode(str);
+					byte[] keyBytes = hexDecode(key);
+					
+					Security.addProvider(new BouncyCastleProvider());
+	
+					SecretKey gorillaKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+					Mac hMac = Mac.getInstance("HmacSHA256", "BC");
+					hMac.init(gorillaKey);
+					hMac.update(decoded);
+      
+          byte[] HmacResult = hMac.doFinal();
+      
+          return StringThing.create(hexEncode(HmacResult));
+					
+				}
+				catch (Exception e) {
+          return StringThing.create("\nError: " + e.getMessage());
+        }
+				
       default:
         throw new HeclException("Unknown Gorilla command '"
               + argv[1].toString() + "' with code '"
@@ -228,5 +279,7 @@ class GorillaCmds extends Operator {
     cmdtable.put("hex", new GorillaCmds(HEX,1,1));
     cmdtable.put("twofish::encrypt", new GorillaCmds(TWOFISHENCRYPT,1,2));
     cmdtable.put("twofish::decrypt", new GorillaCmds(TWOFISHDECRYPT,3,4));
+    cmdtable.put("hexToAsc", new GorillaCmds(HEXTOASC,1,1));
+    cmdtable.put("sha256hmac", new GorillaCmds(SHA256HMAC,2,2));
   }
 }
