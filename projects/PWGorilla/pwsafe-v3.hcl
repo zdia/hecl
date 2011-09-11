@@ -47,27 +47,33 @@ proc computeStretchedKey {salt password iterations} {
     
 }
 
-proc readHeaderFields {} {
-  global hmacUpdate
+proc readHeaderFields { crypto } {
+  global source
+  
   # fh - filehandler
   # while {![$source eof]}
   # while {file.readable} {
   # }
+puts "crypto0: $crypto"  
   while { true } {
-    set field [readField]
+    set crypto [readField $crypto]
+puts "crypto1: $crypto"  
+    # set fieldType [lindex $field 0]
+    # set fieldValue [lindex $field 1]
+    set fieldType [hget $crypto fieldType]
+    set fieldValue [hget $crypto fieldData]
 
-    if { eq $field "" } { puts eof; break } ;# eof
+    if { eq $fieldType "" } { puts eof; break } ;# eof
 
-    set fieldType [lindex $field 0]
-    set fieldValue [lindex $field 1]
-    
     if { = $fieldType 255} {
       break
     }
 
     # sha2::HMACUpdate $hmacEngine $fieldValue
-    append $hmacUpdate $fieldValue
-    
+    set value [hget $crypto hmac]
+    append $value $fieldValue
+    hset $crypto hmac $value
+
     #
     # Format the header's field type, if necessary
     #
@@ -92,7 +98,7 @@ proc readHeaderFields {} {
 
     # $db setHeaderField $fieldType $fieldValue
     # puts "db setHeaderField $fieldValue"
-        
+
   } ;# end while
 
   #
@@ -103,14 +109,15 @@ proc readHeaderFields {} {
 	# if {![$db hasHeaderField 0]} {
 	    # $db setHeaderField 0 [list 3 0]
 	# }
-  
+
+  return $crypto
+      
 } ;# end of proc
 
-proc readField {} {
-  global source key iv hmacUpdate
-  #
+proc readField { crypto } {
+  global source
+
 	# first block contains field length and type
-	#
 
 	set encryptedFirstBlock [$source readhex 16]
 # puts "encryptedFirstBlock $encryptedFirstBlock"
@@ -118,7 +125,8 @@ proc readField {} {
   # test for eof marker "PWS3-EOFPWS3-EOF"
 	if { eq $encryptedFirstBlock "505753332d454f46505753332d454f46" } {
 	    # EOF marker
-	    return [list]
+      hset $crypto fieldType ""
+	    return $crypto
 	}
   # if {[string length $encryptedFirstBlock] == 0 && [$source eof]} {
 	    # error "EOF while reading field"
@@ -130,20 +138,19 @@ proc readField {} {
   
   # in cbc mode the iv is taken from the last 16byte block from the cipher
 
-# puts "key $key"
-# puts "iv $iv"
-	set decryptedFirstBlock [twofish::decrypt -cbc $encryptedFirstBlock $key $iv]
-# puts "decryptedFirstBlock: $decryptedFirstBlock"
+  set key [hget $crypto key]
+  set iv [hget $crypto iv]
 
+	set decryptedFirstBlock [twofish::decrypt -cbc $encryptedFirstBlock $key $iv]
+  # puts "decryptedFirstBlock: $decryptedFirstBlock"
+
+  hset $crypto iv $encryptedFirstBlock
   set iv $encryptedFirstBlock
-  
+
   set fieldLength [ integer parseInt [toLittleEndian [strrange $decryptedFirstBlock 0 7] ] 16 ]
-  # set fieldType [integer parseInt [strrange $decryptedFirstBlock 8 9] 16]
   set fieldType [integer parseInt [strrange $decryptedFirstBlock 8 9] 16]
 
-  #
-	# field length sanity check
-	#
+	# === field length sanity check ===
 
 	if { or [ < $fieldLength 0 ] [ > $fieldLength 65536 ] } {
 	    puts "field length $fieldLength looks insane"
@@ -154,33 +161,30 @@ proc readField {} {
 
   # Todo: if { $type ni $typeList } error
 
-  #
 	# remainder of the first block contains data
-	#
 
 	if { <= $fieldLength 11} {
-	    set fieldData [strrange $decryptedFirstBlock 10 [+ [ * 2 $fieldLength ] 9]]
-	    # pwsafe::int::randomizeVar decryptedFirstBlock
-# puts "fieldType $fieldType fieldData $fieldData [strlen $fieldData]"
-	    return [list $fieldType $fieldData]
+    set fieldData [strrange $decryptedFirstBlock 10 [+ [ * 2 $fieldLength ] 9]]
+    # pwsafe::int::randomizeVar decryptedFirstBlock
+    # puts "fieldType $fieldType fieldData $fieldData [strlen $fieldData]"
+
+    hset $crypto fieldType $fieldType
+    hset $crypto fieldData $fieldData
+    
+    return $crypto
 	}
 
-# puts "fieldLength > 11"
 	set fieldData [strrange $decryptedFirstBlock 10 [incr [strlen $decryptedFirstBlock] -1]]
 	# pwsafe::int::randomizeVar decryptedFirstBlock
 	incr $fieldLength -11
 
-	#
 	# remaining data is stored in multiple blocks
-	#
 
 	set numBlocks [ / [+ $fieldLength 15] 16 ]
 	set dataLength [* $numBlocks 16]
 
-  #
 	# decrypt field
-	#
-# puts "dataLength of decrypt field: $dataLength"
+
 	set encryptedData [$source readhex $dataLength]
 
 	if { != [strlen $encryptedData] [* 2 $dataLength]} {
@@ -188,61 +192,48 @@ proc readField {} {
       exit
 	}
 
-	# set decryptedData [$engine decrypt $encryptedData]
-# puts "encryptedData $encryptedData len: [strlen $encryptedData]"
-# puts "iv $iv"
+  # puts "encryptedData $encryptedData len: [strlen $encryptedData]"
 	set decryptedData [twofish::decrypt -cbc $encryptedData $key $iv]
-# puts "decryptedData $decryptedData"
 
   if { > [strlen $encryptedData] 32 } {
-# puts "str_encrypted [strlen $encryptedData]"
-# puts "[ - [strlen $encryptedData] 1] [ - [strlen $encryptedData] 32]"
-  set iv [strrange $encryptedData [- [strlen $encryptedData] 32] [ - [strlen $encryptedData] 1] ]
-  # take the last 16 bytes from encryptedFirstBlock
-# puts "iv+ $iv"
+    # take the last 16 bytes from encryptedFirstBlock
+    hset $crypto iv [strrange $encryptedData [- [strlen $encryptedData] 32] [ - [strlen $encryptedData] 1] ]
   } else {
-    set iv $encryptedData
+    hset $crypto iv $encryptedData
   }
   
-  #
 	# adjust length of data; truncate padding
-	#
-# puts "strrange fieldData 0 [ * 2 $fieldLength]: [strrange $decryptedData 0 [- [ * 2 $fieldLength] 1]]"
-# puts "len decryptedData: [strlen $decryptedData]"
+
 	append $fieldData [strrange $decryptedData 0 [- [ * 2 $fieldLength] 1]]
 
-	#
 	# field decrypted successfully
-	#
 
 	# pwsafe::int::randomizeVar decryptedData
-puts "+++ fieldData: [hexToAsc $fieldData]"
-	return [list $fieldType $fieldData]
+  # puts "+++ fieldData: [hexToAsc $fieldData]"
+
+  hset $crypto fieldType $fieldType
+  hset $crypto fieldData $fieldData
+
+	return $crypto
   
 } ;# end of proc readField
 
-proc  readAllFields { percentvar } {
-  global database hmacUpdate
-	if {ne $percentvar ""} {
+proc  readAllFields { crypto } {
+  global database source
+	# if {ne $percentvar ""} {
 	    # upvar $percentvar pcv
-	    puts "percentvar $percentvar"
-	}
+	    # puts "percentvar $percentvar"
+	# }
 
 	set fileSize [file.size $database]
 
-  #
 	# Remaining fields are user data
-	#
 
 	set first 1
 
   # Todo: implement [$source eof] -> true/false
 	while { true } {
     
-    set field [readField]
-    
-    if { eq $field "" } { puts eof; break } ;# eof
-
     # --- code to define percent index ---
     # set filePos [$source tell]
     # if {$filePos != -1 && $fileSize != -1 && \
@@ -253,8 +244,12 @@ proc  readAllFields { percentvar } {
     # }
     # set pcv $percent
 
-    set fieldType [lindex $field 0]
-    set fieldValue [lindex $field 1]
+    set crypto [readField $crypto]
+
+    set fieldType [hget $crypto fieldType]
+    set fieldValue [hget $crypto fieldData]
+
+    if { eq $fieldType "" } { puts eof; break } ;# eof
 
     if { = $fieldType 255} {
       set first 1
@@ -267,11 +262,12 @@ proc  readAllFields { percentvar } {
       set first 0
     }
 
-    # sha2::HMACUpdate $hmacEngine $fieldValue
-    append $hmacUpdate $fieldValue
-    #
+    # update hmac message value
+    set value [hget $crypto hmac]
+    append $value $fieldValue
+    hset $crypto hmac $value
+
     # Format the field's type, if necessary
-    #
 
 	  if { = $fieldType 1 } {
       #
@@ -333,6 +329,8 @@ proc  readAllFields { percentvar } {
 	    # pwsafe::int::randomizeVar fieldType fieldValue
       
 	} ;# end of while
+
+  return $crypto
   
 } ;# end of proc readAllFields {{percentvar ""}} 
 
@@ -358,151 +356,145 @@ proc  readAllFields { percentvar } {
 
 
 
-# ================== main =======================
-
-# -----------------------------------------------
-# public method readFile {{percentvar ""}}
-# -----------------------------------------------
 
 # Note: There is no "namespace" in Hecl.
 # proc gorilla::readFile {{percentvar ""}} {}
-
-set database "/home/dia/Projekte/git/hecl/projects/PWGorilla/testdb.psafe3"
-set source [open $database r]
-set myPassword test
-set hmacUpdate ""
-
-set tag [$source read 4]
-
-  if {ne $tag "PWS3"} {
-      puts "Error: File does not have PWS3 magic"
-      # exit
-  }
-
-# NOTE: length of hex strings returned by readhex is bytes*2
-  set salt [$source readhex 32]
-  set biter [$source readhex 4]
-  set hskey [$source readhex 32]
-  set b1 [$source readhex 16]
-  set b2 [$source readhex 16]
-  set b3 [$source readhex 16]
-  set b4 [$source readhex 16]
-  set iv [$source readhex 16]
-
-  if { or [!= [strlen $salt] 64] \
-          [!= [strlen $biter] 8] \
-          [!= [strlen $hskey] 64] \
-          [!= [strlen $b1] 32] \
-          [!= [strlen $b2] 32] \
-          [!= [strlen $b3] 32] \
-          [!= [strlen $b4] 32] \
-          [!= [strlen $iv] 32] }  {
-    # pwsafe::int::randomizeVar salt hskey b1 b2 b3 b4 iv
-    puts "end of file while reading header"
-    exit
-  }
-
-java java.lang.Integer integer
-set iter [ integer parseInt [toLittleEndian $biter] 16 ]
-# Todo: iter min max warnings
-
-# Todo: $db configure -keyStretchingIterations $iter
-
-  #
-  # Verify the password
-  #
-
-# Todo: the passord given by the user is stored as a encrypted one and has to be
-# decrypted before use.
-# set myskey [pwsafe::int::computeStretchedKey $salt [$db getPassword] $iter]
-
-  set myskey [computeStretchedKey $salt $myPassword $iter]
+proc pwsafe::readFile { } {
+  global source
   
-  set myhskey [sha256 $myskey]
-
-  puts "hskey:\t\t$hskey"
-  puts "myhskey:\t$myhskey"
+  set myPassword test
   
-  if {ne $hskey $myhskey} {
-      # pwsafe::int::randomizeVar salt hskey b1 b2 b3 b4 iv myskey myhskey
-      puts "wrong password"
+  set crypto [hash [list key "" iv "" hmac "" fieldType "" fieldData ""] ]
+
+  set tag [$source read 4]
+  
+    if {ne $tag "PWS3"} {
+        puts "Error: File does not have PWS3 magic"
+        # exit
+    }
+  
+  # NOTE: length of hex strings returned by readhex is bytes*2
+    set salt [$source readhex 32]
+    set biter [$source readhex 4]
+    set hskey [$source readhex 32]
+    set b1 [$source readhex 16]
+    set b2 [$source readhex 16]
+    set b3 [$source readhex 16]
+    set b4 [$source readhex 16]
+    set iv [$source readhex 16]
+  
+    if { or [!= [strlen $salt] 64] \
+            [!= [strlen $biter] 8] \
+            [!= [strlen $hskey] 64] \
+            [!= [strlen $b1] 32] \
+            [!= [strlen $b2] 32] \
+            [!= [strlen $b3] 32] \
+            [!= [strlen $b4] 32] \
+            [!= [strlen $iv] 32] }  {
+      # pwsafe::int::randomizeVar salt hskey b1 b2 b3 b4 iv
+      puts "end of file while reading header"
       exit
-  }
-
-  # pwsafe::int::randomizeVar salt hskey myhskey
+    }
   
-  puts "=== Step 1: Password verified"
+  java java.lang.Integer integer
+  set iter [ integer parseInt [toLittleEndian $biter] 16 ]
+  # Todo: iter min max warnings
   
-#
-	# The real key is encrypted using Twofish in ECB mode, using
-	# the stretched passphrase as its key.
-	#
-
-  # decrypt twofish key with ecb mode
-	# pwsafe::int::randomizeVar myskey
-
-  #
-	# Decrypt the real key from b1 and b2, and the key L that is
-	# used to calculate the HMAC
-	#
-
-	set key [twofish::decrypt -ecb $b1 $myskey]
-	append $key [twofish::decrypt -ecb $b2 $myskey]
-puts "twofishkey:\t$key"
-	#pwsafe::int::randomizeVar b1 b2
-
-	set hmacKey [twofish::decrypt -ecb $b3 $myskey]
-	append $hmacKey [twofish::decrypt -ecb $b4 $myskey]
-puts "hmacKey:\t$hmacKey"
-
-  puts "=== Step 2: Twofish and Hmac key decrypted"
-
-  readHeaderFields
-  readAllFields ""
-
-  puts "=== Step 3: Header fields and Data fields decrypted"
-	# set hmacEngine [sha2::HMACInit $hmacKey]
+  # Todo: $db configure -keyStretchingIterations $iter
   
-	# pwsafe::int::randomizeVar b3 b4 hmacKey
-
-  #
-	# Read and validate HMAC
-	#
-
-	set hmac [$source readhex 32]
-	set myHmac [sha256hmac $hmacUpdate $hmacKey]
-puts "hmac\t$hmac"
-puts "myhmac\t$myHmac"
-	if { ne $hmac $myHmac } {
-	    # set dbWarnings [$db cget -warningsDuringOpen]
-	    # lappend dbWarnings "Database authentication failed. File may have been tampered with."
-	    # $db configure -warningsDuringOpen $dbWarnings
-      puts "Error: Database authentication failed. File may have been tampered with."
-      # exit
-	}
-
-  puts "=== Step 4: Hmac authentification of all data fields proved"
+  # Step 1: Verify the password
   
-  puts "+++ File is read successfully"
+  # Todo: the main passord given by the user is stored encrypted
+  # one and has to be decrypted with [$db getPassword] before use.
+  
+    set myskey [computeStretchedKey $salt $myPassword $iter]
+    set myhskey [sha256 $myskey]
+  
+    puts "hskey:\t\t$hskey"
+    puts "myhskey:\t$myhskey"
+    
+    if {ne $hskey $myhskey} {
+        # pwsafe::int::randomizeVar salt hskey b1 b2 b3 b4 iv myskey myhskey
+        puts "wrong password"
+        exit
+    }
+  
+    # pwsafe::int::randomizeVar salt hskey myhskey
+    
+    puts "=== Step 1: Password verified"
+    
+    # Step 2: Decrypt Twofish and Hmac key
+    
+    # The real key is encrypted using Twofish in ECB mode, using
+    # the stretched passphrase as its key.
+  
+    # pwsafe::int::randomizeVar myskey
+  
+    # Decrypt the real key from b1 and b2, and the key L that is
+    # used to calculate the HMAC
+  
+    set key [twofish::decrypt -ecb $b1 $myskey]
+    append $key [twofish::decrypt -ecb $b2 $myskey]
+    puts "twofishkey:\t$key"
+    #pwsafe::int::randomizeVar b1 b2
+  
+    set hmacKey [twofish::decrypt -ecb $b3 $myskey]
+    append $hmacKey [twofish::decrypt -ecb $b4 $myskey]
+    puts "hmacKey:\t$hmacKey"
+    puts "=== Step 2: Twofish and Hmac key decrypted"
 
-	# pwsafe::int::randomizeVar hmac myHmac
+    # Step 3: Decrypt Header fields and Data fields
+    
+    hset $crypto key $key
+    hset $crypto iv $iv
+puts "crypto: $crypto"  
+    
+    set crypto [readHeaderFields $crypto]
+    set crypto [readAllFields $crypto]
 
-  # clean up
-	# itcl::delete object $engine
-	# set engine ""
+  
+    puts "=== Step 3: Header fields and Data fields decrypted"
+    # set hmacEngine [sha2::HMACInit $hmacKey]
+    
+    # pwsafe::int::randomizeVar b3 b4 hmacKey
+  
+    # Step 4: Read and validate HMAC 
+  
+    set hmac [$source readhex 32]
+    set myHmac [sha256hmac [hget $crypto hmac] $hmacKey]
+  puts "hmac\t$hmac"
+  puts "myhmac\t$myHmac"
+    if { ne $hmac $myHmac } {
+        # set dbWarnings [$db cget -warningsDuringOpen]
+        # lappend dbWarnings "Database authentication failed. File may have been tampered with."
+        # $db configure -warningsDuringOpen $dbWarnings
+        puts "Error: Database authentication failed. File may have been tampered with."
+        # exit
+    }
+  
+    puts "=== Step 4: Hmac authentification of all data fields proved"
+    
+    puts "+++ File is read successfully"
+  
+    # pwsafe::int::randomizeVar hmac myHmac
+  
+    # clean up
+    # itcl::delete object $engine
+    # set engine ""
+  # 
+      # constructor {db_ source_} {
+    # set db $db_
+    # set source $source_
+    # set engine ""
+    # set used 0
+      # }
+  # 
+      # destructor {
+    # if {$engine != ""} {
+        # itcl::delete object $engine
     # }
-# 
-    # constructor {db_ source_} {
-	# set db $db_
-	# set source $source_
-	# set engine ""
-	# set used 0
-    # }
-# 
-    # destructor {
-	# if {$engine != ""} {
-	    # itcl::delete object $engine
-	# }
-    # }
-
-$source close
+      # }
+  
+  $source close
+  
+} ;# end proc readFile
