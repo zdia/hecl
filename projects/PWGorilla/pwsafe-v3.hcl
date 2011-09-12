@@ -54,10 +54,8 @@ proc readHeaderFields { crypto } {
   # while {![$source eof]}
   # while {file.readable} {
   # }
-puts "crypto0: $crypto"  
   while { true } {
     set crypto [readField $crypto]
-puts "crypto1: $crypto"  
     # set fieldType [lindex $field 0]
     # set fieldValue [lindex $field 1]
     set fieldType [hget $crypto fieldType]
@@ -96,8 +94,7 @@ puts "crypto1: $crypto"
         # append fieldValue "-" [string range $tmp 20 31]
     }
 
-    # $db setHeaderField $fieldType $fieldValue
-    # puts "db setHeaderField $fieldValue"
+    db::setHeaderField $fieldType $fieldValue
 
   } ;# end while
 
@@ -120,7 +117,7 @@ proc readField { crypto } {
 	# first block contains field length and type
 
 	set encryptedFirstBlock [$source readhex 16]
-# puts "encryptedFirstBlock $encryptedFirstBlock"
+  # puts "encryptedFirstBlock $encryptedFirstBlock"
 
   # test for eof marker "PWS3-EOFPWS3-EOF"
 	if { eq $encryptedFirstBlock "505753332d454f46505753332d454f46" } {
@@ -136,8 +133,6 @@ proc readField { crypto } {
 	    # error "less than 16 bytes remaining for first block"
 	# }
   
-  # in cbc mode the iv is taken from the last 16byte block from the cipher
-
   set key [hget $crypto key]
   set iv [hget $crypto iv]
 
@@ -257,8 +252,8 @@ proc  readAllFields { crypto } {
     }
 
     if { != $first 0 } {
-      # set recordnumber [$db createRecord]
-      puts "Setting recordnumber to newly created record"
+      set recordnumber [db::createRecord]
+      puts "Setting recordnumber to $recordnumber"
       set first 0
     }
 
@@ -324,8 +319,8 @@ proc  readAllFields { crypto } {
 
 		} ;# end if
 
-	    # $db setFieldValue $recordnumber $fieldType $fieldValue
-      puts "=== fieldValue [hexToAsc $fieldValue]"
+	    db::setFieldValue $recordnumber $fieldType [hexToAsc $fieldValue]
+      # puts "=== fieldValue [hexToAsc $fieldValue]"
 	    # pwsafe::int::randomizeVar fieldType fieldValue
       
 	} ;# end of while
@@ -447,7 +442,6 @@ proc pwsafe::readFile { } {
     
     hset $crypto key $key
     hset $crypto iv $iv
-puts "crypto: $crypto"  
     
     set crypto [readHeaderFields $crypto]
     set crypto [readAllFields $crypto]
