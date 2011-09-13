@@ -135,7 +135,7 @@ public class Interp extends Thread/*implements Runnable*/ {
     public static final char eol[] = { '\n' };
 //#endif
 
-//#if files || j2se
+//#if files || j2se || android
     /**
      * <code>fileseparator</code> is the file separator, such as "/".
      *

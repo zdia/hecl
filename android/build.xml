@@ -165,6 +165,21 @@
     </javac>
   </target>
 
+  <!-- added by z.dia -->
+    <target name="compileAndroidFiles"
+    description="Compile Android Hecl file support"
+    depends="compileAndroid">
+    <wtkpreprocess srcdir="files"
+      symbols="${android.defines}"
+      destdir="${android.pre}/files"/>
+    <javac srcdir="${android.pre}/files"
+      destdir="${android.build}"
+      debug="${hecldebug}">
+      <classpath refid="android.coreclasspath"/>
+      <classpath refid="classpath"/>
+    </javac>
+  </target>
+  
   <!-- Compile this project's .java files into .class files. -->
   <target name="compileAndroid" depends="dirs, resource-src, aidl">
     <wtkpreprocess srcdir="core"
@@ -181,7 +196,7 @@
 
   <target name="compileAndroidMain"
     description="Compile Android Hecl sources"
-    depends="compileAndroid,compileAndroidHttp,compileAndroidJava">
+    depends="compileAndroid,compileAndroidHttp,compileAndroidJava,compileAndroidFiles">
 
     <javac srcdir="android/src"
       debug="${hecldebug}"

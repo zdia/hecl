@@ -42,6 +42,11 @@ import org.hecl.java.JavaCmd;
 import org.hecl.net.Base64Cmd;
 import org.hecl.net.HttpCmd;
 
+import org.hecl.files.FileCmds;
+import org.hecl.files.HeclFileUtils;
+import org.hecl.files.HeclStreamCmds;
+import org.hecl.java.NullCmd;
+
 /**
  * The <code>Hecl</code> class is the main entry point into Hecl
  * applications on Android.
@@ -161,8 +166,12 @@ public class Hecl extends Activity
      */
     public void loadLibs(Interp interp) throws Exception {
 	AndroidCmd.load(interp, this);
-	HttpCmd.load(interp);
-	Base64Cmd.load(interp);
+  /* Add the standard packages in. */
+  FileCmds.load(interp);
+  HeclStreamCmds.load(interp);
+  Base64Cmd.load(interp);
+  HttpCmd.load(interp);
+  NullCmd.load(interp);
 	String script = getResourceAsString(this.getClass(), R.raw.lib, "UTF-8");
 	interp.eval(new Thing(script));
     }
