@@ -22,11 +22,14 @@
 # sensible data like the password or keys are passed encryptedly or as
 # a parameter
 
-set database "/home/dia/Projekte/git/hecl/projects/PWGorilla/testdb.psafe3"
+# set database "/home/dia/Projekte/git/hecl/projects/PWGorilla/testdb.psafe3"
+set database "/sdcard/testdb.psafe3"
 set source [open $database r]
 
-source /home/dia/Projekte/git/hecl/projects/PWGorilla/pwsafe-db.hcl
-source /home/dia/Projekte/git/hecl/projects/PWGorilla/pwsafe-v3.hcl
+# source /home/dia/Projekte/git/hecl/projects/PWGorilla/pwsafe-db.hcl
+# source /home/dia/Projekte/git/hecl/projects/PWGorilla/pwsafe-v3.hcl
+source /sdcard/pwsafe-db.hcl
+source /sdcard/pwsafe-v3.hcl
 
 
 pwsafe::readFile

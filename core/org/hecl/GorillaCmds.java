@@ -35,9 +35,12 @@ import java.security.Security;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-
+//#if android
+	import org.spongycastle.jce.provider.BouncyCastleProvider;
+//#else
+	import org.bouncycastle.jce.provider.BouncyCastleProvider;
+//#endif
+import android.util.Log;
 
 class GorillaCmds extends Operator {
   
@@ -47,6 +50,8 @@ class GorillaCmds extends Operator {
   public static final int TWOFISHDECRYPT = 4;
   public static final int HEXTOASC = 5;
   public static final int SHA256HMAC = 6;
+
+	private static final String TAG = "gorilla";
 
   public byte[] hexDecode(String hex) throws Exception {
     // System.out.println("len" + hex.length());
@@ -126,7 +131,7 @@ class GorillaCmds extends Operator {
 
           SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
 
-          Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding", "BC");
+          Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding", "SC");
         
           byte[] cipherText = new byte[strBytes.length];
           cipher.init(Cipher.ENCRYPT_MODE, gorillaKey);
@@ -158,12 +163,17 @@ class GorillaCmds extends Operator {
 						byte[] decodedBytes = new byte[encodedBytes.length];
 	
 						Security.addProvider(new BouncyCastleProvider());
-						// System.out.println("sec " + Security.getProvider("BC"));
+						System.out.println("sec: " + Security.getProvider("SC"));
 	
 						SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
+						Log.v(TAG, "before ecb call");
+/*
 						Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding", "BC");
+*/
+						Cipher cipher = Cipher.getInstance("Twofish/ECB/NoPadding");
+						Log.v(TAG, "before cipher.init");
 						cipher.init(Cipher.DECRYPT_MODE, gorillaKey);
-		
+						Log.v(TAG, "after cipher.init");
 						int decodedLength = cipher.update(encodedBytes, 0, encodedBytes.length, decodedBytes, 0);
 						decodedLength += cipher.doFinal(decodedBytes, decodedLength);
 		
@@ -188,7 +198,10 @@ class GorillaCmds extends Operator {
 	
 						SecretKey gorillaKey = new SecretKeySpec(keyBytes, "Twofish");
 						IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+/*
 						Cipher cipher = Cipher.getInstance("Twofish/CBC/NoPadding", "BC");
+*/
+						Cipher cipher = Cipher.getInstance("Twofish/CBC/NoPadding", "SC");
 						cipher.init(Cipher.DECRYPT_MODE, gorillaKey, ivSpec);
 		
 						int decodedLength = cipher.update(encodedBytes, 0, encodedBytes.length, decodedBytes, 0);
@@ -200,10 +213,21 @@ class GorillaCmds extends Operator {
 						throw new HeclException("Unknown mode " + str + ": -ecb or -cbc expected");
 					}
         }
-
+				catch (NoSuchAlgorithmException nsae) {
+					return StringThing.create("Error nsae: " + nsae.getMessage());
+				}
+				catch (NoSuchPaddingException nspe) {
+					return StringThing.create("Error nspe: " + nspe.getMessage());
+				}
+				catch (Exception e) {
+					return StringThing.create("Error e: " + e.getMessage());
+				}
+/*
         catch (Exception e) {
+					e.printStackTrace();
           return StringThing.create("Error: " + e.getMessage());
         }
+*/
 
 			case HEXTOASC:
  
@@ -240,7 +264,7 @@ class GorillaCmds extends Operator {
 					Security.addProvider(new BouncyCastleProvider());
 	
 					SecretKey gorillaKey = new SecretKeySpec(keyBytes, "HmacSHA256");
-					Mac hMac = Mac.getInstance("HmacSHA256", "BC");
+					Mac hMac = Mac.getInstance("HmacSHA256", "SC");
 					hMac.init(gorillaKey);
 					hMac.update(decoded);
       
