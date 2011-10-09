@@ -48,7 +48,7 @@ proc basicspinner {context lst args} {
 proc basiclist {context lst args} {
     set aa [arrayadapter -new \
 		[list $context \
-		     [reslookup android.R.layout.simple_list_item_1] \
+		     [reslookup R.layout.list_item] \
 		     $lst]]
 
     set cmd [expand 3 [list listview -new $context $args]]

@@ -238,9 +238,12 @@ public class Reflector {
 
 	try {
 	    Class type = f.getType();
+System.out.println("[setField] type: " + type);
+System.out.println("[setField] newvalue: " + newvalue);
 	    if (!heclTypeToJavaType(return_value, type, newvalue)) {
 		throw new HeclException("no match found for " + type);
 	    }
+System.out.println("[setField] return_value: " + return_value);
 	    f.set(target, return_value[0]);
 	} catch (Exception e) {
 	    e.printStackTrace();
@@ -286,12 +289,13 @@ public class Reflector {
 	Method selected = null;
 
 	if (methodnames == null) {
+System.out.println("[evaluate] fillMethods" );
 	    fillMethods();
 	}
 
 	try {
 	    Vector<Method> v = ((Vector)methodnames.get(cmd.toLowerCase()));
-
+System.out.println("v = " + v);
 	    if (v == null) {
 		throw new HeclException("Method " + cmd + " not found for class" + forclass.toString());
 	    }
@@ -357,6 +361,7 @@ public class Reflector {
 	throws HeclException {
 
 	if(outparams.length != argv.length - offset) {
+    System.out.println("+++ outparams.length: " + outparams.length);
 	    return false;
 	}
 
@@ -378,7 +383,12 @@ public class Reflector {
 	    }
 	    String heclparmt = inparam.getVal().thingclass();
 
+System.out.println("[mapParams] class outparam: " + javaclassname);
+System.out.println("[mapParams] heclthing inparam: " + heclparmt);
+
+
 	    if (heclTypeToJavaType(return_value, outparam, inparam)) {
+System.out.println("[mapParams] return_value: " + return_value[0]);
 		outobjs[i] = return_value[0];
 		matched = true;
 	    } else {
@@ -420,7 +430,9 @@ public class Reflector {
 	boolean foundmatch = false;
 
 	String heclparmt = heclparm.getVal().thingclass();
+System.out.println("[heclTypeToJavaType] heclparmt: " + heclparmt +"!");
 	String javaclassname = rtype.getSimpleName();
+System.out.println("[heclTypeToJavaType] javaclassname: " + javaclassname);
 
 	/* null is always going to match. */
 	if (heclparmt.equals("object") && ObjectThing.get(heclparm) == null) {
@@ -453,10 +465,16 @@ public class Reflector {
 	    }
 	} else if (rtype == CharSequence.class ||
 		   rtype == String.class) {
+System.out.println("CharSequence.class");
 	    if (heclparmt.equals("string")) {
 		retval[0] = heclparm.toString();
+System.out.println("[retval for String]: " + heclparm.toString());
 		foundmatch = true;
-	    }
+	    } else if (heclparmt.equals("object")) {
+    retval[0] = ObjectThing.get(heclparm).toString();
+System.out.println("object CharSequence" + retval[0]);
+    foundmatch = true;
+      }
 	} else if (javaclassname.equals("byte[]")) {
 	    if (heclparmt.equals("string")) {
 		try {
@@ -500,17 +518,35 @@ public class Reflector {
 	    retval[0] = heclparm;
 	    foundmatch = true;
 	} else if (heclparmt.equals("object")) {
-	    /* We are getting an ObjectThing from Hecl... */
-	    retval[0] = ObjectThing.get(heclparm);
-	    foundmatch = true;
+      /* see if the object is a string */
+System.out.println("object!!!");
+      if (javaclassname.equals("CharSequence")) {
+        retval[0] = ObjectThing.get(heclparm).toString();
+System.out.println("object CharSequence" + retval[0]);
+        foundmatch = true;
+      } else {
+        /* We are getting an ObjectThing from Hecl... */
+        retval[0] = ObjectThing.get(heclparm);
+        foundmatch = true;
+      }
 	} else if (rtype == Object.class) {
 	    /* We're not getting an ObjectThing from Hecl, but Java
 	     * can take any Object. Give it Things directly.  This is
 	     * sort of a last resort as more specific is better. */
 	    retval[0] = heclparm;
 	    foundmatch = true;
-	}
+/*
+	} else if (javaclassname.equals("Typeface")) {
+Systeym.out.println("!!!heclparam: " + heclparm.toString());
+System.out.println("!!!heclparam: " +  IntThing.get(heclparm));
+      retval[0] = null;
+      foundmatch = true;
+*/
+  }
 	/* No match. */
+  System.out.println("[heclTypeToJavaType] heclparmt = " + heclparmt);
+  System.out.println("[heclTypeToJavaType] foundmatch = " + foundmatch);
+  System.out.println("[heclTypeToJavaType] return value = " +retval[0]);
 	return foundmatch;
     }
 
@@ -525,7 +561,6 @@ public class Reflector {
      */
     public Thing javaTypeToHeclType(Class rtype, Object o) {
 	String rtypename = rtype.getSimpleName();
-
 	if (o == null) {
 	    return null;
 	} else if (rtype == void.class) {
