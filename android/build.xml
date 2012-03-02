@@ -84,7 +84,7 @@
   <condition property="aidl" value="${android-platform-tools}/aidl.exe" else="${android-platform-tools}/aidl" >
     <os family="windows"/>
   </condition>
-  <condition property="adb" value="${android-tools}/adb.exe" else="${android-tools}/adb" >
+  <condition property="adb" value="${android-tools}/adb.exe" else="${android-platform-tools}/adb" >
     <os family="windows"/>
   </condition>
   <condition property="dx" value="${android-platform-tools}/dx.bat" else="${android-platform-tools}/dx" >
