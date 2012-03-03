@@ -22,15 +22,28 @@ proc openDialog {} {
  
   $openDialogLayout addview [textview -new $context -text "\n Select a task:\n" \
     -layoutparams $layoutparams -textsize 14.0]
-  $openDialogLayout addview [button -new $context -text "Open" \
+  set openButton [button -new $context -text "Open" \
     -layoutparams $layoutparams]
-  $openDialogLayout addview [button -new $context -text "New" \
+  set newButton [button -new $context -text "New" \
     -layoutparams $layoutparams]
-  $openDialogLayout addview [button -new $context -text "Exit" \
+  set exitButton [button -new $context -text "Exit" \
     -layoutparams $layoutparams]
+    
+  $openButton setonclicklistener [callback -new [list [ list openCallback "open" ]]]
+  $newButton setonclicklistener [callback -new [list [ list openCallback "new" ]]]
+  $exitButton setonclicklistener [callback -new [list [ list openCallback "exit" ]]]
+
+  $openDialogLayout addview $openButton
+  $openDialogLayout addview $newButton
+  $openDialogLayout addview $exitButton
          
  [activity] setcontentview $openDialogLayout
 
+}
+
+proc openCallback { option button } {
+  # androidlog "you pressed option: $option"
+  alert "You have pressed option: $option"
 }
 
 proc MenuSetup {} {
@@ -97,8 +110,6 @@ proc main {} {
   [activity] settitle "Password Gorilla"
   
   openDialog
-  
-  
   
   # ------------------
   # set lview [basiclist $context [list "Group 1" "Group 2" "Group 3"] \
