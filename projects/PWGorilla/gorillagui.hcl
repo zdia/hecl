@@ -3,11 +3,13 @@
 # (c) 2012 Zbigniew Diaczyszyn
 # License: GPL
 #
-# openDialog
 # clickable listview of groups and logins
 # onClickGroup: new activity with new listview
 # onClickLogin: new activity with login contents
 # add menu: find
+# Note: There is only one activity with different layouts
+# Calling [activity] means creating a subhecl class which is declared
+# in AndroidManifest.xml
 
 proc openDialog {} {
   # screen #1: Open - New - Exit
@@ -44,6 +46,40 @@ proc openDialog {} {
 proc openCallback { option button } {
   # androidlog "you pressed option: $option"
   alert "You have pressed option: $option"
+}
+
+proc fileSelect {} {
+  # screen 2: filepath - listview of file names
+  
+  set path "/sdcard"
+  file.cd $path
+  # androidlog "+++ cwd [file.getcwd]"
+  set fileNames [file.list "./"]
+  puts $path
+  
+  # activity + layout
+  set context [activity]
+  [activity] settitle "Password Gorilla - Select Database"
+  
+  set layoutparams [linearlayoutparams -new {FILL_PARENT WRAP_CONTENT} ]
+  set filesLayout [linearlayout -new $context -layoutparams $layoutparams]
+  $filesLayout setorientation VERTICAL
+
+  set filesListview [basiclist $context $fileNames \
+    -layoutparams $layoutparams]
+  $filesListview requestfocus
+  
+  set tv [textview -new $context \
+       -text " Path: $path" \
+       -layoutparams $layoutparams -textsize 12.0 ]
+  $tv setTypeface 1 1 ;# Note: settypeface will cause error!
+  $tv setTextColor -256 ;# yellow
+  # Note: background in textview can only be set by XML definition file
+  
+  $filesLayout addview $tv
+  $filesLayout addview $filesListview
+
+  [activity] setcontentview $filesLayout
 }
 
 proc MenuSetup {} {
@@ -105,15 +141,15 @@ proc selectItem {args} {
 }
 
 proc main {} {
-  global alertdialog context
+  global context
   
   [activity] settitle "Password Gorilla"
   
-  openDialog
+  fileSelect
+  
+  # openDialog
   
   # ------------------
-  # set lview [basiclist $context [list "Group 1" "Group 2" "Group 3"] \
-         # -layoutparams $layoutparams]
   # 
   # $lview requestfocus
   # $layout addview $lview
