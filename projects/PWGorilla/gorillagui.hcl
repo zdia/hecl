@@ -7,20 +7,21 @@
 # onClickGroup: new activity with new listview
 # onClickLogin: new activity with login contents
 # add menu: find
-# Note: There is only one activity with different layouts
-# Calling [activity] means creating a subhecl class which is declared
-# in AndroidManifest.xml
+# Note: There is only one main activity with different layouts
+# Calling [activity] means creating a subhecl class which is already
+# declared in AndroidManifest.xml
 
 proc openDialog {} {
   # screen #1: Open - New - Exit
   
   set context [activity]
+  androidlog "+++ context of openDialog: $context"
   set layoutparams [linearlayoutparams -new {FILL_PARENT WRAP_CONTENT}]
   
   set openDialogLayout [linearlayout -new $context -layoutparams $layoutparams]
   $openDialogLayout setorientation VERTICAL
-  # Note: view orientation can be changed by click
-  # better to provide also horizontal orientation
+  # Note: view orientation can be changed by click (KEYPAD 7 or 9)
+  # better to provide also a landscape orientation
  
   $openDialogLayout addview [textview -new $context -text "\n Select a task:\n" \
     -layoutparams $layoutparams -textsize 14.0]
@@ -44,21 +45,46 @@ proc openDialog {} {
 }
 
 proc openCallback { option button } {
+  global context
   # androidlog "you pressed option: $option"
-  alert "You have pressed option: $option"
+  # alert "You have pressed option: $option"
+  if { eq $option "open" } { newActivity $context fileSelect }
+}
+
+proc selectedFileCallback { oldcontext listview textview positionId rowId } {
+    myActivity $oldcontext [list openDB $positionId]
+}
+
+proc openDB { itemPos } {
+
+  set context [activity]
+  androidlog "+++ context of openDB: $context"
+  [activity] settitle "Password Gorilla - View Database"
+  set layoutparams [linearlayoutparams -new {FILL_PARENT WRAP_CONTENT} ]
+  set viewDBLayout [linearlayout -new $context -layoutparams $layoutparams]
+  $viewDBLayout setorientation VERTICAL
+  $viewDBLayout addview [textview -new $context \
+       -text " Selected item#: $itemPos" \
+       -layoutparams $layoutparams -textsize 12.0 ]
+  [activity] setcontentview $viewDBLayout
 }
 
 proc fileSelect {} {
   # screen 2: filepath - listview of file names
   
+  # get the filenames
   set path "/sdcard"
   file.cd $path
   # androidlog "+++ cwd [file.getcwd]"
   set fileNames [file.list "./"]
-  puts $path
+  linsert $fileNames 0 "../"
+  # file.isdirectory -> append /
+  # append "../"
+  # puts $path
   
   # activity + layout
   set context [activity]
+  androidlog "+++ context of fileSelect: $context"
   [activity] settitle "Password Gorilla - Select Database"
   
   set layoutparams [linearlayoutparams -new {FILL_PARENT WRAP_CONTENT} ]
@@ -72,12 +98,16 @@ proc fileSelect {} {
   set tv [textview -new $context \
        -text " Path: $path" \
        -layoutparams $layoutparams -textsize 12.0 ]
-  $tv setTypeface 1 1 ;# Note: settypeface will cause error!
-  $tv setTextColor -256 ;# yellow
+  # Note: Option is case-sensivte. "settypeface" will cause error!
+  $tv setTypeface 1 1     ;# NORMAL BOLD
+  $tv setTextColor -256   ;# yellow
   # Note: background in textview can only be set by XML definition file
   
   $filesLayout addview $tv
   $filesLayout addview $filesListview
+  
+  set selectFileCallback [callback -new [list [list selectedFileCallback $context]]]
+  $filesListview setonitemclicklistener $selectFileCallback
 
   [activity] setcontentview $filesLayout
 }
@@ -143,23 +173,11 @@ proc selectItem {args} {
 proc main {} {
   global context
   
+  set context [activity]
   [activity] settitle "Password Gorilla"
   
-  fileSelect
+  openDialog
   
-  # openDialog
-  
-  # ------------------
-  # 
-  # $lview requestfocus
-  # $layout addview $lview
-
-  # callback is evaluating a vector
-  # set handleItem [callback -new [list [list selectItem]]]
-  # $lview setonitemclicklistener $handleItem
-  # 
-  # [activity] setcontentview $layout
-
   # MenuSetup
   
   # java android.app.AlertDialog alertdialog
@@ -169,8 +187,7 @@ proc main {} {
 
 main
 
-
-# $tv settext "Gruppenliste:\nbasiclist"
+# Fails:
 # String styledText = "This is <font color='red'>simple</font>.";
 # textView.setText(Html.fromHtml(styledText), TextView.BufferType.SPANNABLE);
 

@@ -63,8 +63,28 @@ proc basiclist {context lst args} {
 #	Create a new activity from the old $context, and execute $code
 #	in it.
 
+# proc newActivity { name context code} {
+  # name -- name of activity like declared in AndroidManifest.xml
+  # context -- oldcontext of parent activity
+  # code -- code to be executed, in general a procedure
+  
+    # set h [name -new [list]]
+    # set intent [intent -new [list]]
+    # $intent setclass $context [$h getclass]
+    # $h setmailbox $code
+    # $context startActivity $intent
+# }
+
 proc newActivity {context code} {
     set h [subhecl -new [list]]
+    set intent [intent -new [list]]
+    $intent setclass $context [$h getclass]
+    $h setmailbox $code
+    $context startActivity $intent
+}
+
+proc myActivity {context code} {
+    set h [logincontent -new [list]]
     set intent [intent -new [list]]
     $intent setclass $context [$h getclass]
     $h setmailbox $code

@@ -121,6 +121,7 @@ public class Hecl extends Activity
     protected void createCommands(Interp i) throws HeclException {
  	JavaCmd.load(interp, "org.hecl.android.Hecl", "hecl");
  	JavaCmd.load(interp, "org.hecl.android.SubHecl", "subhecl");
+ 	JavaCmd.load(interp, "org.hecl.android.LoginContent", "logincontent");
     }
 
     /**

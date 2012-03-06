@@ -31,5 +31,12 @@
       </intent-filter>
     </activity>
 
+    <activity android:name="org.hecl.android.LoginContent" android:label="LoginContent"
+      android:configChanges="orientation|keyboardHidden">
+      <intent-filter>
+	<action android:name="android.intent.action.MAIN" />
+      </intent-filter>
+    </activity>
+
   </application>
 </manifest>
