@@ -48,15 +48,16 @@ proc openCallback { option button } {
   global context
   # androidlog "you pressed option: $option"
   # alert "You have pressed option: $option"
-  if { eq $option "open" } { newActivity $context fileSelect }
+  if { eq $option "open" } { newActivity subhecl $context fileSelect }
 }
 
 proc selectedFileCallback { oldcontext listview textview positionId rowId } {
-    myActivity $oldcontext [list openDB $positionId]
+    newActivity logincontent $oldcontext [list openDB $positionId]
 }
 
 proc openDB { itemPos } {
-
+  # itemPos - Position of clicked item in the listview
+  
   set context [activity]
   androidlog "+++ context of openDB: $context"
   [activity] settitle "Password Gorilla - View Database"
@@ -106,8 +107,8 @@ proc fileSelect {} {
   $filesLayout addview $tv
   $filesLayout addview $filesListview
   
-  set selectFileCallback [callback -new [list [list selectedFileCallback $context]]]
-  $filesListview setonitemclicklistener $selectFileCallback
+  $filesListview setonitemclicklistener \
+   [callback -new [list [list selectedFileCallback $context]]]
 
   [activity] setcontentview $filesLayout
 }
