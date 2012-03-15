@@ -48,11 +48,71 @@ proc openCallback { option button } {
   global context
   # androidlog "you pressed option: $option"
   # alert "You have pressed option: $option"
-  if { eq $option "open" } { newActivity subhecl $context fileSelect }
+  if { eq $option "open" } { newActivity subhecl $context selectFile }
 }
 
-proc selectedFileCallback { oldcontext listview textview positionId rowId } {
-    newActivity logincontent $oldcontext [list openDB $positionId]
+proc selectFileCallback { aa tv oldcontext listview textview positionId rowId } {
+  
+  global path fileNames
+  
+  set file [$aa getItem $positionId]
+  # error-check:
+  # if { eq $file ""}
+  # file.exists
+  set pathfile [file.join [list $path $file]]
+
+androidlog "+++ fileNames: $fileNames"
+androidlog "+++ file: $file"
+androidlog "+++ getItem: [$aa getItem $positionId]"
+
+  if { = [file.isdirectory $pathfile] 1 } {
+    
+    # go to parent folder?
+    if { eq $file "../" } {
+      set splitted [file.split $path]
+      set parentdir  [lrange $splitted 0 [- [llen $splitted] 2]]
+      set path [file.join $parentdir]
+      file.cd $path
+      set fileNames [file.list $path]
+      $aa clear
+      
+      foreach name $fileNames {
+        if { = [file.isdirectory $name] 1} {
+          append $name "/"
+        }
+        $aa add $name
+      }
+      
+    } else {      
+      # change to new directory
+      
+      # get the new path
+      set path $pathfile
+      file.cd $path
+      set fileNames [file.list $path]
+      
+      $aa clear
+      
+      foreach name $fileNames {
+        if { = [file.isdirectory $name] 1} {
+          append $name "/"
+        }
+        $aa add $name
+      }
+    }
+    
+    if { ne $path "/" } {
+      $aa insert "../" 0
+    }
+    
+    $tv setText "Path: $path"
+  
+  } else {
+    # newActivity logincontent $oldcontext [list openDB $positionId]
+    androidlog "+++ selectedDatabase: $file , $path"
+  }
+  
+  return
 }
 
 proc openDB { itemPos } {
@@ -70,30 +130,54 @@ proc openDB { itemPos } {
   [activity] setcontentview $viewDBLayout
 }
 
-proc fileSelect {} {
+proc configureFilesLayout { layout } {
+  androidlog "--- layout: $layout"
+  $layout removeAllViews
+}
+
+proc selectFile {} {
   # screen 2: filepath - listview of file names
+  
+  global path fileNames
   
   # get the filenames
   set path "/sdcard"
   file.cd $path
   # androidlog "+++ cwd [file.getcwd]"
-  set fileNames [file.list "./"]
-  linsert $fileNames 0 "../"
-  # file.isdirectory -> append /
-  # append "../"
-  # puts $path
+  set fileNames [file.list $path]
   
   # activity + layout
   set context [activity]
-  androidlog "+++ context of fileSelect: $context"
+  androidlog "+++ context of selectFile: $context"
   [activity] settitle "Password Gorilla - Select Database"
   
   set layoutparams [linearlayoutparams -new {FILL_PARENT WRAP_CONTENT} ]
   set filesLayout [linearlayout -new $context -layoutparams $layoutparams]
   $filesLayout setorientation VERTICAL
+  
+  # androidlog "--- filesLayout: $filesLayout"
+  # configureFilesLayout $filesLayout
+  # nedds: filesLayout layoutparams context fileNames path
 
-  set filesListview [basiclist $context $fileNames \
-    -layoutparams $layoutparams]
+  set filesAdapter [arrayadapter -new \
+		[list $context [reslookup R.layout.list_item] ] ]
+  
+  $filesAdapter add "../"
+  
+  foreach file $fileNames {
+    # androidlog "+++ $file isdirectory [file.isdirectory $file]"
+    # mark the file as directory directly in the adapter
+    if { = [file.isdirectory $file] 1} {
+      append $file "/"
+    }
+    $filesAdapter add $file
+  }
+  
+  set filesListview [listview -new $context -layoutparams $layoutparams]
+  
+  # set filesListview [basiclist $context $fileNames \
+    # -layoutparams $layoutparams]
+  $filesListview setAdapter $filesAdapter
   $filesListview requestfocus
   
   set tv [textview -new $context \
@@ -108,7 +192,8 @@ proc fileSelect {} {
   $filesLayout addview $filesListview
   
   $filesListview setonitemclicklistener \
-   [callback -new [list [list selectedFileCallback $context]]]
+   [callback -new [list [list selectFileCallback $filesAdapter $tv $context]]]
+  # ---------------------------------
 
   [activity] setcontentview $filesLayout
 }

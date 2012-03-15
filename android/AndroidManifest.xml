@@ -11,12 +11,12 @@
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
-  <application android:icon="@org.hecl.android:drawable/aicon">
+  <application android:icon="@org.hecl.android:drawable/gorilla72">
 
 <!--     <provider android:name="org.hecl.android.ScriptProvider" -->
 <!--       android:authorities="org.hecl.android.Scripts" /> -->
 
-    <activity android:name="org.hecl.android.Hecl" android:label="Hecl"
+    <activity android:name="org.hecl.android.Hecl" android:label="Password Gorilla"
       android:configChanges="orientation|keyboardHidden">
       <intent-filter>
 	<action android:name="android.intent.action.MAIN" />

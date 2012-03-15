@@ -75,22 +75,6 @@ proc newActivity { name context code} {
     $context startActivity $intent
 }
 
-# proc newActivity {context code} {
-    # set h [subhecl -new [list]]
-    # set intent [intent -new [list]]
-    # $intent setclass $context [$h getclass]
-    # $h setmailbox $code
-    # $context startActivity $intent
-# }
-
-proc myActivity {context code} {
-    set h [logincontent -new [list]]
-    set intent [intent -new [list]]
-    $intent setclass $context [$h getclass]
-    $h setmailbox $code
-    $context startActivity $intent
-}
-
 # contentQuery --
 #
 #	Run a query and return a cursor object.
